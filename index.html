@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Бесплатные proxy для Telegram</title>
+    <title>MTProto для Telegram</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -73,10 +73,6 @@
             border-radius: 5px;
             margin: 20px 0;
         }
-        .timer {
-            color: #d32f2f;
-            font-weight: bold;
-        }
         .empty-message {
             text-align: center;
             color: #999;
@@ -85,10 +81,10 @@
     </style>
 </head>
 <body>
-    <h1>Бесплатные proxy для Telegram</h1>
+    <h1>MTProto для Telegram</h1>
     
     <div class="warning">
-        <strong>⚠️ ВНИМАНИЕ:</strong> Прокси обновляются не чаще одного раза в 24 часа.
+        <strong>⚠️ ВНИМАНИЕ:</strong> Прокси обновляются не чаще одного раза в час.
     </div>
     
     <button id="updateBtn">Проверка доступности обновления...</button>
@@ -142,7 +138,7 @@
                 localStorage.setItem('lastUpdateTime', Date.now().toString());
                 
                 showRandomProxies();
-                status.textContent = `Загружено ${allProxies.length} прокси. Показаны 3 случайных. Следующее обновление через 24ч.`;
+                status.textContent = `Загружено ${allProxies.length} прокси. Показаны 3 случайных. Следующее обновление через 1 час.`;
             } catch (error) {
                 status.textContent = 'Ошибка загрузки: ' + error.message;
                 proxiesDiv.innerHTML = '<div class="empty-message">Не удалось загрузить прокси. Попробуйте позже.</div>';
@@ -188,6 +184,16 @@
             });
         }
 
+        function formatRemainingTime(ms) {
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+            if (hours > 0) {
+                return `${hours} ч ${minutes} мин`;
+            } else {
+                return `${minutes} мин`;
+            }
+        }
+
         function updateButtonState() {
             const button = document.getElementById('updateBtn');
             const lastUpdateTime = localStorage.getItem('lastUpdateTime');
@@ -208,16 +214,18 @@
             const now = Date.now();
             const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
             
-            if (hoursPassed >= 24) {
+            if (hoursPassed >= 1) {
                 button.onclick = () => loadProxies();
                 button.textContent = 'Обновить прокси (доступно)';
                 button.classList.remove('disabled');
             } else {
                 button.onclick = null;
                 button.classList.add('disabled');
-                const remainingHours = Math.ceil(24 - hoursPassed);
-                button.textContent = `Обновить прокси (${remainingHours} ч до доступности)`;
-                updateTimer = setTimeout(updateButtonState, 60 * 60 * 1000);
+                const remainingMs = (1000 * 60 * 60) - (now - lastTime);
+                const remainingText = formatRemainingTime(remainingMs);
+                button.textContent = `Обновить прокси (${remainingText} до доступности)`;
+                // Проверяем состояние каждую минуту
+                updateTimer = setTimeout(updateButtonState, 60 * 1000);
             }
         }
 
@@ -231,12 +239,14 @@
                 const now = Date.now();
                 const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
                 
-                if (hoursPassed < 24) {
+                if (hoursPassed < 1) {
                     try {
                         allProxies = JSON.parse(savedProxies);
                         if (Array.isArray(allProxies) && allProxies.length) {
                             showRandomProxies();
-                            statusDiv.textContent = `Прокси загружены из кэша (${allProxies.length} шт.). Обновление через ${Math.ceil(24 - hoursPassed)} ч.`;
+                            const remainingMs = (1000 * 60 * 60) - (now - lastTime);
+                            const remainingText = formatRemainingTime(remainingMs);
+                            statusDiv.textContent = `Прокси загружены из кэша (${allProxies.length} шт.). Обновление через ${remainingText}.`;
                         } else {
                             throw new Error('Некорректные данные в кэше');
                         }

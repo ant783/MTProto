@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTProto для Telegram</title>
     <style>
-        /* основные стили без изменений */
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
@@ -23,21 +22,20 @@
             padding: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .proxy {
+        .proxy-link {
+            display: block;
             background: #e3f2fd;
             margin: 10px 0;
             padding: 15px;
             border-radius: 5px;
             word-break: break-all;
             font-family: monospace;
-            cursor: pointer;
+            text-decoration: none;
+            color: #000;
             transition: background 0.3s;
         }
-        .proxy:hover {
+        .proxy-link:hover {
             background: #bbdefb;
-        }
-        .proxy:last-child {
-            margin-bottom: 0;
         }
         button {
             display: block;
@@ -79,7 +77,6 @@
             color: #999;
             padding: 20px;
         }
-        /* стили для счётчика посещений */
         .visit-counter {
             position: fixed;
             bottom: 10px;
@@ -107,7 +104,6 @@
     <div id="status">Загрузка прокси...</div>
     <div id="proxies"></div>
 
-    <!-- Счётчик посещений -->
     <div id="visitCounter" class="visit-counter">Посещений: --</div>
 
     <script>
@@ -126,11 +122,8 @@
             }
         });
 
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
-            return false;
-        });
+        // Контекстное меню разрешено, чтобы можно было копировать ссылку длинным нажатием
+        // document.addEventListener('contextmenu', ...) убран
 
         history.pushState(null, null, location.href);
         window.addEventListener('popstate', function() {
@@ -258,22 +251,15 @@
             }
             const selected = shuffled.slice(0, count);
             
-            selected.forEach(proxy => {
-                const div = document.createElement('div');
-                div.className = 'proxy';
-                div.textContent = proxy;
-                div.onclick = () => {
-                    navigator.clipboard.writeText(proxy).then(() => {
-                        const span = document.createElement('span');
-                        span.textContent = ' (скопировано!)';
-                        span.style.color = '#4CAF50';
-                        div.appendChild(span);
-                        setTimeout(() => span.remove(), 2000);
-                    }).catch(() => {
-                        alert('Не удалось скопировать текст');
-                    });
-                };
-                proxiesDiv.appendChild(div);
+            selected.forEach(proxyUrl => {
+                const link = document.createElement('a');
+                link.href = proxyUrl;
+                link.className = 'proxy-link';
+                link.textContent = proxyUrl;
+                // Открываем в той же вкладке, чтобы Telegram перехватил ссылку
+                link.target = '_self';
+                link.rel = 'noopener noreferrer';
+                proxiesDiv.appendChild(link);
             });
         }
 
@@ -322,18 +308,20 @@
         }
 
         // Счётчик посещений
-function updateVisitCounter() {
-    const counterElement = document.getElementById('visitCounter');
-    let visits = localStorage.getItem('visitCount');
-    if (visits === null) visits = 0;
-    else visits = parseInt(visits, 10);
-    visits++;
-    localStorage.setItem('visitCount', visits);
-    counterElement.textContent = `Посещений: ${visits}`;
-}
+        function updateVisitCounter() {
+            const counterElement = document.getElementById('visitCounter');
+            let visits = localStorage.getItem('visitCount');
+            if (visits === null) {
+                visits = 0;
+            } else {
+                visits = parseInt(visits, 10);
+            }
+            visits++;
+            localStorage.setItem('visitCount', visits);
+            counterElement.textContent = `Посещений: ${visits}`;
+        }
 
         function initPage() {
-            // Обновляем счётчик посещений (один раз за загрузку страницы)
             updateVisitCounter();
 
             const lastUpdateTime = localStorage.getItem('lastUpdateTime');

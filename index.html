@@ -322,18 +322,15 @@
         }
 
         // Счётчик посещений
-        function updateVisitCounter() {
-            const counterElement = document.getElementById('visitCounter');
-            let visits = localStorage.getItem('visitCount');
-            if (visits === null) {
-                visits = 0;
-            } else {
-                visits = parseInt(visits, 10);
-            }
-            visits++;
-            localStorage.setItem('visitCount', visits);
-            counterElement.textContent = `Посещений: ${visits}`;
-        }
+function updateVisitCounter() {
+    const counterElement = document.getElementById('visitCounter');
+    let visits = localStorage.getItem('visitCount');
+    if (visits === null) visits = 0;
+    else visits = parseInt(visits, 10);
+    visits++;
+    localStorage.setItem('visitCount', visits);
+    counterElement.textContent = `Посещений: ${visits}`;
+}
 
         function initPage() {
             // Обновляем счётчик посещений (один раз за загрузку страницы)

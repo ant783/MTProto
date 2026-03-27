@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MTProto для Telegram</title>
     <style>
+        /* стили без изменений */
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
@@ -96,58 +97,73 @@
         let updateTimer = null;
 
         // ========== ЗАЩИТА ОТ ОБНОВЛЕНИЯ СТРАНИЦЫ ==========
-        // Блокировка клавиш F5, Ctrl+R, Ctrl+F5
         document.addEventListener('keydown', function(e) {
             const key = e.keyCode || e.which;
             const ctrl = e.ctrlKey || e.metaKey;
-            const shift = e.shiftKey;
             
-            // F5 (116)
-            if (key === 116) {
+            if (key === 116 || (ctrl && key === 82) || (ctrl && key === 116)) {
                 e.preventDefault();
-                showRefreshWarning();
-                return false;
-            }
-            // Ctrl+R (82) или Ctrl+Shift+R
-            if (ctrl && key === 82) {
-                e.preventDefault();
-                showRefreshWarning();
-                return false;
-            }
-            // Ctrl+F5 (116 с Ctrl)
-            if (ctrl && key === 116) {
-                e.preventDefault();
-                showRefreshWarning();
+                alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
                 return false;
             }
         });
 
-        // Блокировка контекстного меню (правый клик)
         document.addEventListener('contextmenu', function(e) {
             e.preventDefault();
-            showRefreshWarning();
+            alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
             return false;
         });
 
-        // Блокировка навигации назад/вперед
         history.pushState(null, null, location.href);
         window.addEventListener('popstate', function() {
             history.pushState(null, null, location.href);
-            showRefreshWarning();
+            alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
         });
 
-        // Предупреждение при попытке закрыть вкладку или перезагрузить через меню браузера
         window.addEventListener('beforeunload', function(e) {
-            // Показываем стандартное предупреждение браузера
             const message = "Обновление страницы сбросит данные. Используйте кнопку на странице для обновления прокси.";
             e.returnValue = message;
             return message;
         });
-
-        function showRefreshWarning() {
-            alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
-        }
         // ==================================================
+
+        // --- Дополнительные источники ---
+        async function fetchFromMtprotoRu() {
+            try {
+                const response = await fetch('https://mtproto.ru/personal-other.php');
+                if (!response.ok) return [];
+                const html = await response.text();
+                // Ищем строку: "Ваш сервер - t2.ru.nuvira.cc"
+                const match = html.match(/Ваш сервер - ([^\s<]+)/);
+                if (match && match[1]) {
+                    const server = match[1];
+                    // Формируем стандартную ссылку t.me/proxy (без secret, так как его нет)
+                    // На практике может потребоваться secret, но в этом источнике он не предоставляется.
+                    // Добавляем как есть, возможно, пользователь сможет использовать только сервер.
+                    return [`https://t.me/proxy?server=${server}`];
+                }
+                return [];
+            } catch (e) {
+                console.log('Ошибка при загрузке mtproto.ru:', e);
+                return [];
+            }
+        }
+
+        async function fetchFromMtproXyz() {
+            try {
+                const response = await fetch('https://mtpro.xyz/');
+                if (!response.ok) return [];
+                const html = await response.text();
+                // Ищем все ссылки вида https://t.me/proxy?... в тексте страницы
+                const regex = /https:\/\/t\.me\/proxy\?[^\s"']+/g;
+                const matches = html.match(regex);
+                return matches ? [...new Set(matches)] : [];
+            } catch (e) {
+                console.log('Ошибка при загрузке mtpro.xyz:', e);
+                return [];
+            }
+        }
+        // --------------------------------
 
         async function loadProxies() {
             const button = document.getElementById('updateBtn');
@@ -160,29 +176,43 @@
             button.disabled = true;
 
             try {
-                const sources = [
-                    'https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt',
-                    'https://raw.githubusercontent.com/Argh94/Proxy-List/main/MTProto.txt'
+                // Все источники (существующие + новые)
+                const sourcesFuncs = [
+                    // GitHub репозитории
+                    async () => {
+                        const resp = await fetch('https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt');
+                        if (!resp.ok) return [];
+                        const text = await resp.text();
+                        return text.split('\n')
+                            .map(l => l.trim())
+                            .filter(l => l && !l.startsWith('#'));
+                    },
+                    async () => {
+                        const resp = await fetch('https://raw.githubusercontent.com/Argh94/Proxy-List/main/MTProto.txt');
+                        if (!resp.ok) return [];
+                        const text = await resp.text();
+                        return text.split('\n')
+                            .map(l => l.trim())
+                            .filter(l => l && !l.startsWith('#'));
+                    },
+                    // Новые источники
+                    fetchFromMtprotoRu,
+                    fetchFromMtproXyz
                 ];
                 
                 let combinedProxies = [];
                 
-                for (const source of sources) {
+                for (const fetchFunc of sourcesFuncs) {
                     try {
-                        const response = await fetch(source);
-                        if (response.ok) {
-                            const text = await response.text();
-                            const proxies = text.split('\n')
-                                .map(line => line.trim())
-                                .filter(line => line && !line.startsWith('#'));
-                            combinedProxies.push(...proxies);
-                        }
+                        const proxies = await fetchFunc();
+                        combinedProxies.push(...proxies);
                     } catch (e) {
-                        console.log(`Ошибка загрузки ${source}:`, e);
+                        console.log('Ошибка в одном из источников:', e);
                     }
                 }
                 
-                allProxies = [...new Set(combinedProxies.filter(p => p))];
+                // Удаляем дубликаты и пустые строки
+                allProxies = [...new Set(combinedProxies.filter(p => p && p.trim()))];
                 
                 if (allProxies.length === 0) {
                     throw new Error('Не удалось загрузить ни одного прокси');

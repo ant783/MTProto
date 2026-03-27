@@ -22,20 +22,42 @@
             padding: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .proxy-link {
-            display: block;
+        .proxy-item {
             background: #e3f2fd;
             margin: 10px 0;
             padding: 15px;
             border-radius: 5px;
-            word-break: break-all;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .proxy-url {
             font-family: monospace;
+            word-break: break-all;
+            flex: 1;
+            cursor: pointer;
             text-decoration: none;
             color: #000;
-            transition: background 0.3s;
         }
-        .proxy-link:hover {
-            background: #bbdefb;
+        .proxy-url:hover {
+            text-decoration: underline;
+        }
+        .tg-button {
+            background: #0088cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .tg-button:hover {
+            background: #006699;
         }
         button {
             display: block;
@@ -91,13 +113,20 @@
             pointer-events: none;
             backdrop-filter: blur(4px);
         }
+        .copy-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <h1>MTProto для Telegram</h1>
     
     <div class="warning">
-        <strong>⚠️ ВНИМАНИЕ:</strong> Обновлять данные можно только кнопкой ниже. Попытки обновить страницу (F5, Ctrl+R и т.п.) будут блокироваться.
+        <strong>⚠️ ВНИМАНИЕ:</strong> Обновлять данные можно только кнопкой ниже. Попытки обновить страницу (F5, Ctrl+R и т.п.) будут блокироваться.<br>
+        <strong>📱 Для добавления прокси:</strong> нажмите кнопку <strong>«Добавить в Telegram»</strong> — откроется Telegram с предложением подключить прокси. Если прокси не работает, попробуйте другой.
     </div>
     
     <button id="updateBtn">Проверка доступности обновления...</button>
@@ -121,9 +150,6 @@
                 return false;
             }
         });
-
-        // Контекстное меню разрешено, чтобы можно было копировать ссылку длинным нажатием
-        // document.addEventListener('contextmenu', ...) убран
 
         history.pushState(null, null, location.href);
         window.addEventListener('popstate', function() {
@@ -252,15 +278,45 @@
             const selected = shuffled.slice(0, count);
             
             selected.forEach(proxyUrl => {
+                const div = document.createElement('div');
+                div.className = 'proxy-item';
+                
+                // Ссылка для копирования
                 const link = document.createElement('a');
-                link.href = proxyUrl;
-                link.className = 'proxy-link';
+                link.href = '#';
+                link.className = 'proxy-url';
                 link.textContent = proxyUrl;
-                // Открываем в той же вкладке, чтобы Telegram перехватил ссылку
-                link.target = '_self';
-                link.rel = 'noopener noreferrer';
-                proxiesDiv.appendChild(link);
+                link.title = 'Нажмите, чтобы скопировать ссылку';
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    navigator.clipboard.writeText(proxyUrl).then(() => {
+                        const hint = document.createElement('span');
+                        hint.textContent = ' (скопировано!)';
+                        hint.style.color = '#4CAF50';
+                        hint.style.fontSize = '12px';
+                        div.appendChild(hint);
+                        setTimeout(() => hint.remove(), 2000);
+                    }).catch(() => alert('Не удалось скопировать текст'));
+                };
+                
+                // Кнопка добавления в Telegram
+                const tgBtn = document.createElement('a');
+                tgBtn.href = proxyUrl;
+                tgBtn.className = 'tg-button';
+                tgBtn.textContent = '📱 Добавить в Telegram';
+                tgBtn.target = '_self';
+                tgBtn.rel = 'noopener noreferrer';
+                
+                div.appendChild(link);
+                div.appendChild(tgBtn);
+                proxiesDiv.appendChild(div);
             });
+            
+            // Добавляем подсказку о копировании
+            const copyHint = document.createElement('div');
+            copyHint.className = 'copy-hint';
+            copyHint.textContent = '💡 Нажмите на ссылку прокси, чтобы скопировать её.';
+            proxiesDiv.appendChild(copyHint);
         }
 
         function formatRemainingTime(ms) {
@@ -307,15 +363,11 @@
             }
         }
 
-        // Счётчик посещений
         function updateVisitCounter() {
             const counterElement = document.getElementById('visitCounter');
             let visits = localStorage.getItem('visitCount');
-            if (visits === null) {
-                visits = 0;
-            } else {
-                visits = parseInt(visits, 10);
-            }
+            if (visits === null) visits = 0;
+            else visits = parseInt(visits, 10);
             visits++;
             localStorage.setItem('visitCount', visits);
             counterElement.textContent = `Посещений: ${visits}`;

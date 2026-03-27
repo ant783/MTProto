@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Бесплатные proxy для Telegram</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #proxies {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .proxy {
+            background: #e3f2fd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            word-break: break-all;
+            font-family: monospace;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .proxy:hover {
+            background: #bbdefb;
+        }
+        .proxy:last-child {
+            margin-bottom: 0;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover:not(.disabled) {
+            background: #45a049;
+        }
+        button.disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #status {
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+        }
+        .loading {
+            color: #2196F3;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .timer {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .empty-message {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Бесплатные proxy для Telegram</h1>
+    
+    <div class="warning">
+        <strong>⚠️ ВНИМАНИЕ:</strong> Прокси обновляются не чаще одного раза в 24 часа.
+    </div>
+    
+    <button id="updateBtn">Проверка доступности обновления...</button>
+    <div id="status">Загрузка прокси...</div>
+    <div id="proxies"></div>
+
+    <script>
+        let allProxies = [];
+        let updateTimer = null; // для таймера обновления кнопки
+
+        // Загрузка прокси из удалённых источников
+        async function loadProxies() {
+            const button = document.getElementById('updateBtn');
+            const status = document.getElementById('status');
+            const proxiesDiv = document.getElementById('proxies');
+            
+            status.textContent = 'Загрузка новых прокси...';
+            status.classList.add('loading');
+            proxiesDiv.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                const sources = [
+                    'https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt',
+                    'https://raw.githubusercontent.com/Argh94/Proxy-List/main/MTProto.txt'
+                ];
+                
+                let combinedProxies = [];
+                
+                for (const source of sources) {
+                    try {
+                        const response = await fetch(source);
+                        if (response.ok) {
+                            const text = await response.text();
+                            // Разбиваем на строки, обрезаем пробелы, убираем пустые и комментарии
+                            const proxies = text.split('\n')
+                                .map(line => line.trim())
+                                .filter(line => line && !line.startsWith('#'));
+                            combinedProxies.push(...proxies);
+                        }
+                    } catch (e) {
+                        console.log(`Ошибка загрузки ${source}:`, e);
+                        status.textContent = `Ошибка при загрузке из ${source}`;
+                    }
+                }
+                
+                // Удаляем дубликаты и пустые строки
+                allProxies = [...new Set(combinedProxies.filter(p => p))];
+                
+                if (allProxies.length === 0) {
+                    throw new Error('Не удалось загрузить ни одного прокси');
+                }
+                
+                // Сохраняем в localStorage
+                localStorage.setItem('allProxies', JSON.stringify(allProxies));
+                localStorage.setItem('lastUpdateTime', Date.now().toString());
+                
+                showRandomProxies();
+                status.textContent = `Загружено ${allProxies.length} прокси. Показаны 3 случайных. Следующее обновление через 24ч.`;
+            } catch (error) {
+                status.textContent = 'Ошибка загрузки: ' + error.message;
+                proxiesDiv.innerHTML = '<div class="empty-message">Не удалось загрузить прокси. Попробуйте позже.</div>';
+            } finally {
+                status.classList.remove('loading');
+                updateButtonState();
+            }
+        }
+
+        // Показать случайные прокси (не более 3, или все, если их меньше)
+        function showRandomProxies() {
+            const proxiesDiv = document.getElementById('proxies');
+            proxiesDiv.innerHTML = '';
+            
+            if (!allProxies.length) {
+                proxiesDiv.innerHTML = '<div class="empty-message">Нет доступных прокси</div>';
+                return;
+            }
+            
+            const count = Math.min(3, allProxies.length);
+            // Создаём копию массива и перемешиваем её
+            const shuffled = [...allProxies];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            const selected = shuffled.slice(0, count);
+            
+            selected.forEach(proxy => {
+                const div = document.createElement('div');
+                div.className = 'proxy';
+                div.textContent = proxy;
+                div.onclick = () => {
+                    navigator.clipboard.writeText(proxy).then(() => {
+                        const span = document.createElement('span');
+                        span.textContent = ' (скопировано!)';
+                        span.style.color = '#4CAF50';
+                        div.appendChild(span);
+                        setTimeout(() => span.remove(), 2000);
+                    }).catch(() => {
+                        alert('Не удалось скопировать текст');
+                    });
+                };
+                proxiesDiv.appendChild(div);
+            });
+        }
+
+        // Обновление состояния кнопки и таймера
+        function updateButtonState() {
+            const button = document.getElementById('updateBtn');
+            const lastUpdateTime = localStorage.getItem('lastUpdateTime');
+            
+            // Очищаем предыдущий таймер, если есть
+            if (updateTimer) {
+                clearTimeout(updateTimer);
+                updateTimer = null;
+            }
+            
+            if (!lastUpdateTime) {
+                // Никогда не обновляли - кнопка активна
+                button.onclick = () => loadProxies();
+                button.textContent = 'Обновить прокси (доступно)';
+                button.classList.remove('disabled');
+                return;
+            }
+            
+            const lastTime = parseInt(lastUpdateTime);
+            const now = Date.now();
+            const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
+            
+            if (hoursPassed >= 24) {
+                button.onclick = () => loadProxies();
+                button.textContent = 'Обновить прокси (доступно)';
+                button.classList.remove('disabled');
+            } else {
+                button.onclick = null;
+                button.classList.add('disabled');
+                const remainingHours = Math.ceil(24 - hoursPassed);
+                button.textContent = `Обновить прокси (${remainingHours} ч до доступности)`;
+                // Запланировать следующую проверку через 1 час
+                updateTimer = setTimeout(updateButtonState, 60 * 60 * 1000);
+            }
+        }
+
+        // Инициализация страницы: загружаем сохранённые прокси или запрашиваем новые
+        function initPage() {
+            const lastUpdateTime = localStorage.getItem('lastUpdateTime');
+            const savedProxies = localStorage.getItem('allProxies');
+            const statusDiv = document.getElementById('status');
+            
+            if (lastUpdateTime && savedProxies) {
+                const lastTime = parseInt(lastUpdateTime);
+                const now = Date.now();
+                const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
+                
+                if (hoursPassed < 24) {
+                    // Используем сохранённые прокси
+                    try {
+                        allProxies = JSON.parse(savedProxies);
+                        if (Array.isArray(allProxies) && allProxies.length) {
+                            showRandomProxies();
+                            statusDiv.textContent = `Прокси загружены из кэша (${allProxies.length} шт.). Обновление через ${Math.ceil(24 - hoursPassed)} ч.`;
+                        } else {
+                            throw new Error('Некорректные данные в кэше');
+                        }
+                    } catch (e) {
+                        console.warn('Ошибка чтения кэша прокси', e);
+                        // Если кэш повреждён, загружаем заново
+                        loadProxies();
+                    }
+                } else {
+                    // Кэш устарел, загружаем новые
+                    loadProxies();
+                }
+            } else {
+                // Нет сохранённых данных — загружаем впервые
+                loadProxies();
+            }
+            
+            // Обновляем состояние кнопки (она может быть активна или нет)
+            updateButtonState();
+        }
+
+        // Запуск инициализации после полной загрузки DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPage);
+        } else {
+            initPage();
+        }
+    </script>
+</body>
+</html>

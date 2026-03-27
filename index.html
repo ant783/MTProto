@@ -84,7 +84,7 @@
     <h1>MTProto для Telegram</h1>
     
     <div class="warning">
-        <strong>⚠️ ВНИМАНИЕ:</strong> Прокси обновляются не чаще одного раза в час.
+        <strong>⚠️ ВНИМАНИЕ:</strong> Обновлять данные можно только кнопкой ниже. Попытки обновить страницу (F5, Ctrl+R и т.п.) будут блокироваться.
     </div>
     
     <button id="updateBtn">Проверка доступности обновления...</button>
@@ -94,6 +94,60 @@
     <script>
         let allProxies = [];
         let updateTimer = null;
+
+        // ========== ЗАЩИТА ОТ ОБНОВЛЕНИЯ СТРАНИЦЫ ==========
+        // Блокировка клавиш F5, Ctrl+R, Ctrl+F5
+        document.addEventListener('keydown', function(e) {
+            const key = e.keyCode || e.which;
+            const ctrl = e.ctrlKey || e.metaKey;
+            const shift = e.shiftKey;
+            
+            // F5 (116)
+            if (key === 116) {
+                e.preventDefault();
+                showRefreshWarning();
+                return false;
+            }
+            // Ctrl+R (82) или Ctrl+Shift+R
+            if (ctrl && key === 82) {
+                e.preventDefault();
+                showRefreshWarning();
+                return false;
+            }
+            // Ctrl+F5 (116 с Ctrl)
+            if (ctrl && key === 116) {
+                e.preventDefault();
+                showRefreshWarning();
+                return false;
+            }
+        });
+
+        // Блокировка контекстного меню (правый клик)
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            showRefreshWarning();
+            return false;
+        });
+
+        // Блокировка навигации назад/вперед
+        history.pushState(null, null, location.href);
+        window.addEventListener('popstate', function() {
+            history.pushState(null, null, location.href);
+            showRefreshWarning();
+        });
+
+        // Предупреждение при попытке закрыть вкладку или перезагрузить через меню браузера
+        window.addEventListener('beforeunload', function(e) {
+            // Показываем стандартное предупреждение браузера
+            const message = "Обновление страницы сбросит данные. Используйте кнопку на странице для обновления прокси.";
+            e.returnValue = message;
+            return message;
+        });
+
+        function showRefreshWarning() {
+            alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
+        }
+        // ==================================================
 
         async function loadProxies() {
             const button = document.getElementById('updateBtn');
@@ -224,7 +278,6 @@
                 const remainingMs = (1000 * 60 * 60) - (now - lastTime);
                 const remainingText = formatRemainingTime(remainingMs);
                 button.textContent = `Обновить прокси (${remainingText} до доступности)`;
-                // Проверяем состояние каждую минуту
                 updateTimer = setTimeout(updateButtonState, 60 * 1000);
             }
         }

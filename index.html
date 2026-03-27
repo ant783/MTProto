@@ -97,9 +97,8 @@
 
     <script>
         let allProxies = [];
-        let updateTimer = null; // для таймера обновления кнопки
+        let updateTimer = null;
 
-        // Загрузка прокси из удалённых источников
         async function loadProxies() {
             const button = document.getElementById('updateBtn');
             const status = document.getElementById('status');
@@ -123,7 +122,6 @@
                         const response = await fetch(source);
                         if (response.ok) {
                             const text = await response.text();
-                            // Разбиваем на строки, обрезаем пробелы, убираем пустые и комментарии
                             const proxies = text.split('\n')
                                 .map(line => line.trim())
                                 .filter(line => line && !line.startsWith('#'));
@@ -131,18 +129,15 @@
                         }
                     } catch (e) {
                         console.log(`Ошибка загрузки ${source}:`, e);
-                        status.textContent = `Ошибка при загрузке из ${source}`;
                     }
                 }
                 
-                // Удаляем дубликаты и пустые строки
                 allProxies = [...new Set(combinedProxies.filter(p => p))];
                 
                 if (allProxies.length === 0) {
                     throw new Error('Не удалось загрузить ни одного прокси');
                 }
                 
-                // Сохраняем в localStorage
                 localStorage.setItem('allProxies', JSON.stringify(allProxies));
                 localStorage.setItem('lastUpdateTime', Date.now().toString());
                 
@@ -157,7 +152,6 @@
             }
         }
 
-        // Показать случайные прокси (не более 3, или все, если их меньше)
         function showRandomProxies() {
             const proxiesDiv = document.getElementById('proxies');
             proxiesDiv.innerHTML = '';
@@ -168,7 +162,6 @@
             }
             
             const count = Math.min(3, allProxies.length);
-            // Создаём копию массива и перемешиваем её
             const shuffled = [...allProxies];
             for (let i = shuffled.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -195,19 +188,16 @@
             });
         }
 
-        // Обновление состояния кнопки и таймера
         function updateButtonState() {
             const button = document.getElementById('updateBtn');
             const lastUpdateTime = localStorage.getItem('lastUpdateTime');
             
-            // Очищаем предыдущий таймер, если есть
             if (updateTimer) {
                 clearTimeout(updateTimer);
                 updateTimer = null;
             }
             
             if (!lastUpdateTime) {
-                // Никогда не обновляли - кнопка активна
                 button.onclick = () => loadProxies();
                 button.textContent = 'Обновить прокси (доступно)';
                 button.classList.remove('disabled');
@@ -227,12 +217,10 @@
                 button.classList.add('disabled');
                 const remainingHours = Math.ceil(24 - hoursPassed);
                 button.textContent = `Обновить прокси (${remainingHours} ч до доступности)`;
-                // Запланировать следующую проверку через 1 час
                 updateTimer = setTimeout(updateButtonState, 60 * 60 * 1000);
             }
         }
 
-        // Инициализация страницы: загружаем сохранённые прокси или запрашиваем новые
         function initPage() {
             const lastUpdateTime = localStorage.getItem('lastUpdateTime');
             const savedProxies = localStorage.getItem('allProxies');
@@ -244,7 +232,6 @@
                 const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
                 
                 if (hoursPassed < 24) {
-                    // Используем сохранённые прокси
                     try {
                         allProxies = JSON.parse(savedProxies);
                         if (Array.isArray(allProxies) && allProxies.length) {
@@ -255,23 +242,18 @@
                         }
                     } catch (e) {
                         console.warn('Ошибка чтения кэша прокси', e);
-                        // Если кэш повреждён, загружаем заново
                         loadProxies();
                     }
                 } else {
-                    // Кэш устарел, загружаем новые
                     loadProxies();
                 }
             } else {
-                // Нет сохранённых данных — загружаем впервые
                 loadProxies();
             }
             
-            // Обновляем состояние кнопки (она может быть активна или нет)
             updateButtonState();
         }
 
-        // Запуск инициализации после полной загрузки DOM
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initPage);
         } else {

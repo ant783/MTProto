@@ -1,14 +1,16 @@
-```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MTProto для Telegram</title>
+    <title>MTProto прокси для Telegram</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f4f4f4;
@@ -17,11 +19,39 @@
             text-align: center;
             color: #333;
         }
-        #proxies {
+        /* Стили вкладок */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ccc;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: #e0e0e0;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: 0.2s;
+            font-weight: bold;
+        }
+        .tab-btn.active {
+            background: white;
+            border-bottom: 2px solid white;
+            margin-bottom: -2px;
+            color: #0088cc;
+        }
+        .tab-content {
             background: white;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
         }
         .proxy-item {
             background: #e3f2fd;
@@ -60,7 +90,7 @@
         .tg-button:hover {
             background: #006699;
         }
-        button {
+        button:not(.tab-btn) {
             display: block;
             margin: 20px auto;
             padding: 10px 20px;
@@ -71,7 +101,7 @@
             cursor: pointer;
             font-size: 16px;
         }
-        button:hover:not(.disabled) {
+        button:not(.tab-btn):hover:not(.disabled) {
             background: #45a049;
         }
         button.disabled {
@@ -112,47 +142,67 @@
             margin-top: 5px;
             text-align: center;
         }
+        .tab-status {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
-    <h1>MTProto для Telegram</h1>
+    <h1>MTProto прокси для Telegram</h1>
     
+    <!-- Вкладки: только две -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="tab1">📡 Все источники</button>
+        <button class="tab-btn" data-tab="tab2">⭐ VIP proxy</button>
+    </div>
+
+    <!-- Содержимое вкладок -->
+    <div id="tab1" class="tab-content active">
+        <div class="tab-status">Прокси из стандартных источников (SoliSpirit, Argh94, mtproto.ru, mtpro.xyz)</div>
+        <div id="proxies-tab1"></div>
+    </div>
+    <div id="tab2" class="tab-content">
+        <div class="tab-status">Прокси из репозитория <strong>ant783/MTProto</strong> (автоматическая загрузка, ручной отбор)</div>
+        <div id="proxies-tab2"></div>
+    </div>
+
     <button id="updateBtn">Проверка доступности обновления...</button>
     <div id="status">Загрузка прокси...</div>
-    <div id="proxies"></div>
 
     <div id="visitCounter" class="visit-counter">Посещений: --</div>
 
     <script>
-        let allProxies = [];
+        // ===================== Глобальные данные =====================
+        let standardProxies = [];      // из основных источников (теперь "Все источники")
+        let vipProxies = [];            // из ant783/MTProto (теперь "VIP proxy")
+
         let updateTimer = null;
 
         // ========== ЗАЩИТА ОТ ОБНОВЛЕНИЯ СТРАНИЦЫ ==========
         document.addEventListener('keydown', function(e) {
             const key = e.keyCode || e.which;
             const ctrl = e.ctrlKey || e.metaKey;
-            
             if (key === 116 || (ctrl && key === 82) || (ctrl && key === 116)) {
                 e.preventDefault();
                 alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
                 return false;
             }
         });
-
         history.pushState(null, null, location.href);
         window.addEventListener('popstate', function() {
             history.pushState(null, null, location.href);
-            alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
+            alert("Обновление страницы заблокировано. Используйте кнопку на странице.");
         });
-
         window.addEventListener('beforeunload', function(e) {
-            const message = "Обновление страницы сбросит данные. Используйте кнопку на странице для обновления прокси.";
+            const message = "Обновление страницы сбросит данные. Используйте кнопку для обновления прокси.";
             e.returnValue = message;
             return message;
         });
         // ==================================================
 
-        // --- Дополнительные источники ---
+        // ---------- Источник 1: стандартные (Все источники) ----------
         async function fetchFromMtprotoRu() {
             try {
                 const response = await fetch('https://mtproto.ru/personal-other.php');
@@ -165,7 +215,7 @@
                 }
                 return [];
             } catch (e) {
-                console.log('Ошибка при загрузке mtproto.ru:', e);
+                console.log('mtproto.ru error:', e);
                 return [];
             }
         }
@@ -179,97 +229,95 @@
                 const matches = html.match(regex);
                 return matches ? [...new Set(matches)] : [];
             } catch (e) {
-                console.log('Ошибка при загрузке mtpro.xyz:', e);
+                console.log('mtpro.xyz error:', e);
                 return [];
             }
         }
-        // --------------------------------
 
-        async function loadProxies() {
-            const button = document.getElementById('updateBtn');
-            const status = document.getElementById('status');
-            const proxiesDiv = document.getElementById('proxies');
-            
-            status.textContent = 'Загрузка новых прокси...';
-            status.classList.add('loading');
-            proxiesDiv.innerHTML = '';
-            button.disabled = true;
-
+        async function loadStandardProxies() {
+            let combined = [];
             try {
-                const sourcesFuncs = [
-                    async () => {
-                        const resp = await fetch('https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt');
-                        if (!resp.ok) return [];
-                        const text = await resp.text();
-                        return text.split('\n')
-                            .map(l => l.trim())
-                            .filter(l => l && !l.startsWith('#'));
-                    },
-                    async () => {
-                        const resp = await fetch('https://raw.githubusercontent.com/Argh94/Proxy-List/main/MTProto.txt');
-                        if (!resp.ok) return [];
-                        const text = await resp.text();
-                        return text.split('\n')
-                            .map(l => l.trim())
-                            .filter(l => l && !l.startsWith('#'));
-                    },
-                    fetchFromMtprotoRu,
-                    fetchFromMtproXyz
-                ];
-                
-                let combinedProxies = [];
-                
-                for (const fetchFunc of sourcesFuncs) {
-                    try {
-                        const proxies = await fetchFunc();
-                        combinedProxies.push(...proxies);
-                    } catch (e) {
-                        console.log('Ошибка в одном из источников:', e);
-                    }
+                const resp1 = await fetch('https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt');
+                if (resp1.ok) {
+                    const text = await resp1.text();
+                    const list = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                    combined.push(...list);
                 }
-                
-                allProxies = [...new Set(combinedProxies.filter(p => p && p.trim()))];
-                
-                if (allProxies.length === 0) {
-                    throw new Error('Не удалось загрузить ни одного прокси');
+            } catch(e) { console.log('SoliSpirit error', e); }
+            try {
+                const resp2 = await fetch('https://raw.githubusercontent.com/Argh94/Proxy-List/main/MTProto.txt');
+                if (resp2.ok) {
+                    const text = await resp2.text();
+                    const list = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                    combined.push(...list);
                 }
-                
-                localStorage.setItem('allProxies', JSON.stringify(allProxies));
-                localStorage.setItem('lastUpdateTime', Date.now().toString());
-                
-                showRandomProxies();
-                status.textContent = `Загружено ${allProxies.length} прокси. Показаны 3 случайных. Следующее обновление через 1 час.`;
-            } catch (error) {
-                status.textContent = 'Ошибка загрузки: ' + error.message;
-                proxiesDiv.innerHTML = '<div class="empty-message">Не удалось загрузить прокси. Попробуйте позже.</div>';
-            } finally {
-                status.classList.remove('loading');
-                updateButtonState();
-            }
+            } catch(e) { console.log('Argh94 error', e); }
+            try {
+                const ru = await fetchFromMtprotoRu();
+                combined.push(...ru);
+            } catch(e) {}
+            try {
+                const xyz = await fetchFromMtproXyz();
+                combined.push(...xyz);
+            } catch(e) {}
+            return [...new Set(combined.filter(p => p && p.startsWith('https://t.me/proxy?')))];
         }
 
-        function showRandomProxies() {
-            const proxiesDiv = document.getElementById('proxies');
-            proxiesDiv.innerHTML = '';
-            
-            if (!allProxies.length) {
-                proxiesDiv.innerHTML = '<div class="empty-message">Нет доступных прокси</div>';
+        // ---------- Источник 2: VIP proxy (ant783/MTProto) ----------
+        async function fetchVipProxies() {
+            // Прокси из репозитория ant783/MTProto + страница ant783.github.io/MTProto
+            const possibleFiles = [
+                'https://raw.githubusercontent.com/ant783/MTProto/main/all_proxies.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/main/proxies.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/main/mtproto.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/main/list.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/master/all_proxies.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/master/proxies.txt'
+            ];
+            let all = [];
+            for (const url of possibleFiles) {
+                try {
+                    const resp = await fetch(url);
+                    if (resp.ok) {
+                        const text = await resp.text();
+                        const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#') && l.startsWith('https://t.me/proxy?'));
+                        all.push(...lines);
+                    }
+                } catch(e) { /* тихо */ }
+            }
+            // Парсим саму страницу GitHub Pages
+            try {
+                const pageResp = await fetch('https://ant783.github.io/MTProto/');
+                if (pageResp.ok) {
+                    const html = await pageResp.text();
+                    const regex = /https:\/\/t\.me\/proxy\?[^\s"']+/g;
+                    const matches = html.match(regex);
+                    if (matches) all.push(...matches);
+                }
+            } catch(e) { console.log('не удалось спарсить ant783.github.io'); }
+            return [...new Set(all)];
+        }
+
+        // ---------- Функция отображения для любой вкладки (показываем 3 случайных) ----------
+        function renderProxiesInTab(containerId, proxyArray) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            if (!proxyArray.length) {
+                container.innerHTML = '<div class="empty-message">❌ Нет прокси в этом источнике. Попробуйте обновить позже.</div>';
                 return;
             }
-            
-            const count = Math.min(3, allProxies.length);
-            const shuffled = [...allProxies];
+            // Берём 3 случайных
+            const count = Math.min(3, proxyArray.length);
+            const shuffled = [...proxyArray];
             for (let i = shuffled.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
             const selected = shuffled.slice(0, count);
-            
             selected.forEach(proxyUrl => {
                 const div = document.createElement('div');
                 div.className = 'proxy-item';
-                
-                // Ссылка для копирования
                 const link = document.createElement('a');
                 link.href = '#';
                 link.className = 'proxy-url';
@@ -286,118 +334,164 @@
                         setTimeout(() => hint.remove(), 2000);
                     }).catch(() => alert('Не удалось скопировать текст'));
                 };
-                
-                // Кнопка добавления в Telegram
                 const tgBtn = document.createElement('a');
                 tgBtn.href = proxyUrl;
                 tgBtn.className = 'tg-button';
                 tgBtn.textContent = '📱 Добавить в Telegram';
                 tgBtn.target = '_self';
-                tgBtn.rel = 'noopener noreferrer';
-                
                 div.appendChild(link);
                 div.appendChild(tgBtn);
-                proxiesDiv.appendChild(div);
+                container.appendChild(div);
             });
-            
-            // Добавляем подсказку о копировании
-            const copyHint = document.createElement('div');
-            copyHint.className = 'copy-hint';
-            copyHint.textContent = '💡 Нажмите на ссылку прокси, чтобы скопировать её.';
-            proxiesDiv.appendChild(copyHint);
+            // подсказка
+            const hint = document.createElement('div');
+            hint.className = 'copy-hint';
+            hint.textContent = '💡 Нажмите на ссылку прокси, чтобы скопировать её.';
+            container.appendChild(hint);
         }
 
+        // Обновить обе вкладки
+        function refreshAllTabs() {
+            renderProxiesInTab('proxies-tab1', standardProxies);
+            renderProxiesInTab('proxies-tab2', vipProxies);
+        }
+
+        // Главная загрузка всех данных
+        async function loadAllProxies() {
+            const button = document.getElementById('updateBtn');
+            const statusDiv = document.getElementById('status');
+            button.disabled = true;
+            statusDiv.textContent = '🔄 Загрузка прокси со всех источников...';
+            statusDiv.classList.add('loading');
+
+            try {
+                statusDiv.textContent = '📡 Загрузка основных прокси (Все источники)...';
+                standardProxies = await loadStandardProxies();
+                
+                statusDiv.textContent = '⭐ Загрузка VIP прокси (ant783/MTProto)...';
+                vipProxies = await fetchVipProxies();
+                
+                // Сохраняем в localStorage отдельно
+                localStorage.setItem('standardProxies', JSON.stringify(standardProxies));
+                localStorage.setItem('vipProxies', JSON.stringify(vipProxies));
+                localStorage.setItem('lastUpdateTime', Date.now().toString());
+                
+                // Отображаем
+                refreshAllTabs();
+                statusDiv.textContent = `✅ Загружено: «Все источники» — ${standardProxies.length} прокси, «VIP proxy» — ${vipProxies.length} прокси. Следующее обновление через 1 час.`;
+            } catch (error) {
+                console.error(error);
+                statusDiv.textContent = '❌ Ошибка загрузки: ' + error.message;
+                // пробуем показать кеш
+                const cachedStd = localStorage.getItem('standardProxies');
+                const cachedVip = localStorage.getItem('vipProxies');
+                if (cachedStd && cachedVip) {
+                    standardProxies = JSON.parse(cachedStd);
+                    vipProxies = JSON.parse(cachedVip);
+                    refreshAllTabs();
+                    statusDiv.textContent = `⚠️ Использован кеш (Все источники: ${standardProxies.length}, VIP: ${vipProxies.length}). Повторите позже.`;
+                } else {
+                    document.getElementById('proxies-tab1').innerHTML = '<div class="empty-message">Не удалось загрузить прокси</div>';
+                    document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Не удалось загрузить прокси</div>';
+                }
+            } finally {
+                statusDiv.classList.remove('loading');
+                updateButtonState();
+            }
+        }
+
+        // Форматирование времени
         function formatRemainingTime(ms) {
             const hours = Math.floor(ms / (1000 * 60 * 60));
             const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-            if (hours > 0) {
-                return `${hours} ч ${minutes} мин`;
-            } else {
-                return `${minutes} мин`;
-            }
+            if (hours > 0) return `${hours} ч ${minutes} мин`;
+            return `${minutes} мин`;
         }
 
         function updateButtonState() {
             const button = document.getElementById('updateBtn');
             const lastUpdateTime = localStorage.getItem('lastUpdateTime');
-            
-            if (updateTimer) {
-                clearTimeout(updateTimer);
-                updateTimer = null;
-            }
-            
+            if (updateTimer) clearTimeout(updateTimer);
             if (!lastUpdateTime) {
-                button.onclick = () => loadProxies();
-                button.textContent = 'Обновить прокси (доступно)';
+                button.onclick = () => loadAllProxies();
+                button.textContent = '🔄 Обновить прокси (доступно)';
                 button.classList.remove('disabled');
                 return;
             }
-            
             const lastTime = parseInt(lastUpdateTime);
             const now = Date.now();
             const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
-            
             if (hoursPassed >= 1) {
-                button.onclick = () => loadProxies();
-                button.textContent = 'Обновить прокси (доступно)';
+                button.onclick = () => loadAllProxies();
+                button.textContent = '🔄 Обновить прокси (доступно)';
                 button.classList.remove('disabled');
             } else {
                 button.onclick = null;
                 button.classList.add('disabled');
                 const remainingMs = (1000 * 60 * 60) - (now - lastTime);
                 const remainingText = formatRemainingTime(remainingMs);
-                button.textContent = `Обновить прокси (${remainingText} до доступности)`;
+                button.textContent = `⏳ Обновить прокси (${remainingText} до доступности)`;
                 updateTimer = setTimeout(updateButtonState, 60 * 1000);
             }
         }
 
+        // Счётчик посещений
         function updateVisitCounter() {
-            const counterElement = document.getElementById('visitCounter');
+            const counter = document.getElementById('visitCounter');
             let visits = localStorage.getItem('visitCount');
-            if (visits === null) visits = 0;
-            else visits = parseInt(visits, 10);
+            visits = visits ? parseInt(visits, 10) : 0;
             visits++;
             localStorage.setItem('visitCount', visits);
-            counterElement.textContent = `Посещений: ${visits}`;
+            counter.textContent = `Посещений: ${visits}`;
         }
 
-        function initPage() {
+        // Инициализация: загружаем из кеша или свежие
+        async function initPage() {
             updateVisitCounter();
-
-            const lastUpdateTime = localStorage.getItem('lastUpdateTime');
-            const savedProxies = localStorage.getItem('allProxies');
-            const statusDiv = document.getElementById('status');
-            
-            if (lastUpdateTime && savedProxies) {
-                const lastTime = parseInt(lastUpdateTime);
-                const now = Date.now();
-                const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
-                
-                if (hoursPassed < 1) {
+            const lastUpdate = localStorage.getItem('lastUpdateTime');
+            const cachedStd = localStorage.getItem('standardProxies');
+            const cachedVip = localStorage.getItem('vipProxies');
+            const now = Date.now();
+            let needFresh = true;
+            if (lastUpdate && cachedStd && cachedVip) {
+                const lastTime = parseInt(lastUpdate);
+                if ((now - lastTime) < (1000 * 60 * 60)) {
                     try {
-                        allProxies = JSON.parse(savedProxies);
-                        if (Array.isArray(allProxies) && allProxies.length) {
-                            showRandomProxies();
-                            const remainingMs = (1000 * 60 * 60) - (now - lastTime);
-                            const remainingText = formatRemainingTime(remainingMs);
-                            statusDiv.textContent = `Прокси загружены из кэша (${allProxies.length} шт.). Обновление через ${remainingText}.`;
-                        } else {
-                            throw new Error('Некорректные данные в кэше');
-                        }
-                    } catch (e) {
-                        console.warn('Ошибка чтения кэша прокси', e);
-                        loadProxies();
-                    }
-                } else {
-                    loadProxies();
+                        standardProxies = JSON.parse(cachedStd);
+                        vipProxies = JSON.parse(cachedVip);
+                        refreshAllTabs();
+                        const remainingMs = (1000 * 60 * 60) - (now - lastTime);
+                        const remainingText = formatRemainingTime(remainingMs);
+                        document.getElementById('status').textContent = `📦 Данные из кеша (Все источники: ${standardProxies.length}, VIP: ${vipProxies.length}). Обновление через ${remainingText}.`;
+                        needFresh = false;
+                    } catch(e) { console.warn('кеш повреждён'); }
                 }
-            } else {
-                loadProxies();
             }
-            
-            updateButtonState();
+            if (needFresh) {
+                await loadAllProxies();
+            } else {
+                updateButtonState();
+            }
+            // активируем вкладки
+            initTabs();
         }
 
+        // Переключение вкладок
+        function initTabs() {
+            const btns = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.tab-content');
+            btns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.getAttribute('data-tab');
+                    contents.forEach(content => content.classList.remove('active'));
+                    btns.forEach(b => b.classList.remove('active'));
+                    document.getElementById(tabId).classList.add('active');
+                    btn.classList.add('active');
+                });
+            });
+        }
+
+        // Старт
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initPage);
         } else {
@@ -406,4 +500,3 @@
     </script>
 </body>
 </html>
-```

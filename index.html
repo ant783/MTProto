@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MTProto прокси для Telegram</title>
+    <title>MTProto для Telegram</title>
     <style>
         * {
             box-sizing: border-box;
@@ -89,33 +89,6 @@
         .tg-button:hover {
             background: #006699;
         }
-        button:not(.tab-btn) {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:not(.tab-btn):hover:not(.disabled) {
-            background: #45a049;
-        }
-        button.disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        #status {
-            text-align: center;
-            margin-top: 10px;
-            font-style: italic;
-            color: #666;
-        }
-        .loading {
-            color: #2196F3;
-        }
         .empty-message {
             text-align: center;
             color: #999;
@@ -141,23 +114,15 @@
             margin-top: 5px;
             text-align: center;
         }
-        .tab-status {
-            font-size: 14px;
-            margin-bottom: 10px;
-            color: #555;
-        }
-        .badge {
-            background: #ff9800;
-            color: white;
-            border-radius: 12px;
-            padding: 2px 8px;
-            font-size: 12px;
-            margin-left: 8px;
+        .loading-spinner {
+            text-align: center;
+            padding: 20px;
+            color: #666;
         }
     </style>
 </head>
 <body>
-    <h1>MTProto прокси для Telegram</h1>
+    <h1>MTProto для Telegram</h1>
     
     <div class="tabs">
         <button class="tab-btn active" data-tab="tab1">📡 Все источники</button>
@@ -165,52 +130,40 @@
     </div>
 
     <div id="tab1" class="tab-content active">
-        <div class="tab-status">Прокси из стандартных источников (SoliSpirit, Argh94, mtproto.ru, mtpro.xyz)</div>
-        <div id="proxies-tab1"></div>
+        <div id="proxies-tab1" class="loading-spinner">Загрузка прокси...</div>
     </div>
     <div id="tab2" class="tab-content">
-        <div class="tab-status">
-            🔥 Эксклюзивные прокси из специального репозитория (файл <code>vip_proxies.txt</code>)
-            <br>👉 <a href="https://github.com/ant783/MTProto" target="_blank">Репозиторий с VIP-прокси</a> | 
-            <a href="https://ant783.github.io/MTProto/" target="_blank">Зеркало страницы</a>
-        </div>
-        <div id="proxies-tab2"></div>
+        <div id="proxies-tab2" class="loading-spinner">Загрузка VIP прокси...</div>
     </div>
 
-    <button id="updateBtn">Проверка доступности обновления...</button>
-    <div id="status">Загрузка прокси...</div>
     <div id="visitCounter" class="visit-counter">Посещений: --</div>
 
     <script>
-        // ===================== Глобальные данные =====================
-        let standardProxies = [];      // "Все источники"
-        let vipProxies = [];            // "VIP proxy"
+        let standardProxies = [];
+        let vipProxies = [];
 
-        let updateTimer = null;
-
-        // ========== ЗАЩИТА ОТ ОБНОВЛЕНИЯ СТРАНИЦЫ ==========
+        // Защита от обновления страницы (F5, Ctrl+R)
         document.addEventListener('keydown', function(e) {
             const key = e.keyCode || e.which;
             const ctrl = e.ctrlKey || e.metaKey;
             if (key === 116 || (ctrl && key === 82) || (ctrl && key === 116)) {
                 e.preventDefault();
-                alert("Обновление страницы заблокировано. Используйте кнопку «Обновить прокси» на странице.");
+                alert("Обновление страницы заблокировано. Используйте кнопку браузера «Назад» для выхода.");
                 return false;
             }
         });
         history.pushState(null, null, location.href);
         window.addEventListener('popstate', function() {
             history.pushState(null, null, location.href);
-            alert("Обновление страницы заблокировано. Используйте кнопку на странице.");
+            alert("Обновление страницы заблокировано.");
         });
         window.addEventListener('beforeunload', function(e) {
-            const message = "Обновление страницы сбросит данные. Используйте кнопку для обновления прокси.";
+            const message = "Обновление страницы сбросит данные. Вы уверены?";
             e.returnValue = message;
             return message;
         });
-        // ==================================================
 
-        // ---------- Источник 1: стандартные (Все источники) ----------
+        // --- Источник 1: стандартные ---
         async function fetchFromMtprotoRu() {
             try {
                 const response = await fetch('https://mtproto.ru/personal-other.php');
@@ -223,7 +176,6 @@
                 }
                 return [];
             } catch (e) {
-                console.log('mtproto.ru error:', e);
                 return [];
             }
         }
@@ -237,7 +189,6 @@
                 const matches = html.match(regex);
                 return matches ? [...new Set(matches)] : [];
             } catch (e) {
-                console.log('mtpro.xyz error:', e);
                 return [];
             }
         }
@@ -251,7 +202,7 @@
                     const list = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
                     combined.push(...list);
                 }
-            } catch(e) { console.log('SoliSpirit error', e); }
+            } catch(e) {}
             try {
                 const resp2 = await fetch('https://raw.githubusercontent.com/Argh94/Proxy-List/main/MTProto.txt');
                 if (resp2.ok) {
@@ -259,7 +210,7 @@
                     const list = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
                     combined.push(...list);
                 }
-            } catch(e) { console.log('Argh94 error', e); }
+            } catch(e) {}
             try {
                 const ru = await fetchFromMtprotoRu();
                 combined.push(...ru);
@@ -271,20 +222,16 @@
             return [...new Set(combined.filter(p => p && p.startsWith('https://t.me/proxy?')))];
         }
 
-        // ---------- Источник 2: VIP proxy (специальный файл vip_proxies.txt) ----------
+        // --- Источник 2: VIP proxy (файл vip_proxies.txt) ---
         async function fetchVipProxies() {
-            // Основной файл из репозитория (без явного упоминания в коде, но ссылки ведут на ant783)
             const vipFiles = [
                 'https://raw.githubusercontent.com/ant783/MTProto/main/vip_proxies.txt',
                 'https://raw.githubusercontent.com/ant783/MTProto/master/vip_proxies.txt',
                 'https://raw.githubusercontent.com/ant783/MTProto/main/vip_list.txt',
                 'https://raw.githubusercontent.com/ant783/MTProto/main/all_proxies.txt',
-                'https://raw.githubusercontent.com/ant783/MTProto/main/proxies.txt',
-                'https://raw.githubusercontent.com/ant783/MTProto/main/mtproto.txt',
-                'https://raw.githubusercontent.com/ant783/MTProto/main/list.txt'
+                'https://raw.githubusercontent.com/ant783/MTProto/main/proxies.txt'
             ];
             let all = new Set();
-            
             for (const url of vipFiles) {
                 try {
                     const resp = await fetch(url);
@@ -295,10 +242,8 @@
                             .filter(l => l && !l.startsWith('#') && l.startsWith('https://t.me/proxy?'));
                         lines.forEach(line => all.add(line));
                     }
-                } catch(e) { /* игнорируем */ }
+                } catch(e) {}
             }
-            
-            // Также парсим страницу зеркала
             try {
                 const pageResp = await fetch('https://ant783.github.io/MTProto/');
                 if (pageResp.ok) {
@@ -307,19 +252,17 @@
                     const matches = html.match(regex);
                     if (matches) matches.forEach(m => all.add(m));
                 }
-            } catch(e) { console.log('не удалось спарсить страницу с прокси'); }
-            
+            } catch(e) {}
             return [...all];
         }
 
-        // ---------- Функция отображения для вкладки (показываем 3 случайных) ----------
-        function renderProxiesInTab(containerId, proxyArray, customMessage = null) {
+        // Отображение прокси (по 3 случайных)
+        function renderProxiesInTab(containerId, proxyArray, emptyMessage = '❌ Нет прокси. Попробуйте позже.') {
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
             if (!proxyArray.length) {
-                const msg = customMessage || '❌ Нет прокси в этом источнике. Попробуйте обновить позже.';
-                container.innerHTML = `<div class="empty-message">${msg}</div>`;
+                container.innerHTML = `<div class="empty-message">${emptyMessage}</div>`;
                 return;
             }
             const count = Math.min(3, proxyArray.length);
@@ -346,7 +289,7 @@
                         hint.style.fontSize = '12px';
                         div.appendChild(hint);
                         setTimeout(() => hint.remove(), 2000);
-                    }).catch(() => alert('Не удалось скопировать текст'));
+                    }).catch(() => alert('Не удалось скопировать'));
                 };
                 const tgBtn = document.createElement('a');
                 tgBtn.href = proxyUrl;
@@ -363,90 +306,34 @@
             container.appendChild(hint);
         }
 
-        function refreshAllTabs() {
-            renderProxiesInTab('proxies-tab1', standardProxies);
-            if (vipProxies.length === 0) {
-                renderProxiesInTab('proxies-tab2', vipProxies, 
-                    '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл <code>vip_proxies.txt</code> с ссылками вида https://t.me/proxy?server=...');
-            } else {
-                renderProxiesInTab('proxies-tab2', vipProxies);
-            }
-        }
-
+        // Загрузка всех данных без кнопки и таймера
         async function loadAllProxies() {
-            const button = document.getElementById('updateBtn');
-            const statusDiv = document.getElementById('status');
-            button.disabled = true;
-            statusDiv.textContent = '🔄 Загрузка прокси со всех источников...';
-            statusDiv.classList.add('loading');
-
             try {
-                statusDiv.textContent = '📡 Загрузка основных прокси...';
                 standardProxies = await loadStandardProxies();
-                
-                statusDiv.textContent = '⭐ Загрузка VIP прокси (специальный файл vip_proxies.txt)...';
                 vipProxies = await fetchVipProxies();
-                
+                // Сохраняем в localStorage на случай, если страница будет перезагружена принудительно
                 localStorage.setItem('standardProxies', JSON.stringify(standardProxies));
                 localStorage.setItem('vipProxies', JSON.stringify(vipProxies));
-                localStorage.setItem('lastUpdateTime', Date.now().toString());
-                
-                refreshAllTabs();
-                statusDiv.textContent = `✅ Загружено: «Все источники» — ${standardProxies.length} прокси, «VIP proxy» — ${vipProxies.length} прокси. Следующее обновление через 1 час.`;
+                renderProxiesInTab('proxies-tab1', standardProxies, 'Нет стандартных прокси');
+                renderProxiesInTab('proxies-tab2', vipProxies, '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл vip_proxies.txt');
             } catch (error) {
                 console.error(error);
-                statusDiv.textContent = '❌ Ошибка загрузки: ' + error.message;
+                // При ошибке пробуем загрузить из кеша
                 const cachedStd = localStorage.getItem('standardProxies');
                 const cachedVip = localStorage.getItem('vipProxies');
                 if (cachedStd && cachedVip) {
                     standardProxies = JSON.parse(cachedStd);
                     vipProxies = JSON.parse(cachedVip);
-                    refreshAllTabs();
-                    statusDiv.textContent = `⚠️ Использован кеш (Все источники: ${standardProxies.length}, VIP: ${vipProxies.length}). Повторите позже.`;
+                    renderProxiesInTab('proxies-tab1', standardProxies, 'Нет стандартных прокси (кеш)');
+                    renderProxiesInTab('proxies-tab2', vipProxies, 'VIP прокси не найдены (кеш)');
                 } else {
-                    document.getElementById('proxies-tab1').innerHTML = '<div class="empty-message">Не удалось загрузить прокси</div>';
-                    document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Не удалось загрузить VIP прокси. Проверьте репозиторий.</div>';
+                    document.getElementById('proxies-tab1').innerHTML = '<div class="empty-message">Ошибка загрузки стандартных прокси</div>';
+                    document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Ошибка загрузки VIP прокси</div>';
                 }
-            } finally {
-                statusDiv.classList.remove('loading');
-                updateButtonState();
             }
         }
 
-        function formatRemainingTime(ms) {
-            const hours = Math.floor(ms / (1000 * 60 * 60));
-            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-            if (hours > 0) return `${hours} ч ${minutes} мин`;
-            return `${minutes} мин`;
-        }
-
-        function updateButtonState() {
-            const button = document.getElementById('updateBtn');
-            const lastUpdateTime = localStorage.getItem('lastUpdateTime');
-            if (updateTimer) clearTimeout(updateTimer);
-            if (!lastUpdateTime) {
-                button.onclick = () => loadAllProxies();
-                button.textContent = '🔄 Обновить прокси (доступно)';
-                button.classList.remove('disabled');
-                return;
-            }
-            const lastTime = parseInt(lastUpdateTime);
-            const now = Date.now();
-            const hoursPassed = (now - lastTime) / (1000 * 60 * 60);
-            if (hoursPassed >= 1) {
-                button.onclick = () => loadAllProxies();
-                button.textContent = '🔄 Обновить прокси (доступно)';
-                button.classList.remove('disabled');
-            } else {
-                button.onclick = null;
-                button.classList.add('disabled');
-                const remainingMs = (1000 * 60 * 60) - (now - lastTime);
-                const remainingText = formatRemainingTime(remainingMs);
-                button.textContent = `⏳ Обновить прокси (${remainingText} до доступности)`;
-                updateTimer = setTimeout(updateButtonState, 60 * 1000);
-            }
-        }
-
+        // Счётчик посещений
         function updateVisitCounter() {
             const counter = document.getElementById('visitCounter');
             let visits = localStorage.getItem('visitCount');
@@ -456,42 +343,18 @@
             counter.textContent = `Посещений: ${visits}`;
         }
 
+        // Инициализация
         async function initPage() {
             updateVisitCounter();
-            const lastUpdate = localStorage.getItem('lastUpdateTime');
-            const cachedStd = localStorage.getItem('standardProxies');
-            const cachedVip = localStorage.getItem('vipProxies');
-            const now = Date.now();
-            let needFresh = true;
-            if (lastUpdate && cachedStd && cachedVip) {
-                const lastTime = parseInt(lastUpdate);
-                if ((now - lastTime) < (1000 * 60 * 60)) {
-                    try {
-                        standardProxies = JSON.parse(cachedStd);
-                        vipProxies = JSON.parse(cachedVip);
-                        refreshAllTabs();
-                        const remainingMs = (1000 * 60 * 60) - (now - lastTime);
-                        const remainingText = formatRemainingTime(remainingMs);
-                        document.getElementById('status').textContent = `📦 Данные из кеша (Все источники: ${standardProxies.length}, VIP: ${vipProxies.length}). Обновление через ${remainingText}.`;
-                        needFresh = false;
-                    } catch(e) { console.warn('кеш повреждён'); }
-                }
-            }
-            if (needFresh) {
-                await loadAllProxies();
-            } else {
-                updateButtonState();
-            }
-            initTabs();
-        }
+            await loadAllProxies();
 
-        function initTabs() {
+            // Переключение вкладок
             const btns = document.querySelectorAll('.tab-btn');
             const contents = document.querySelectorAll('.tab-content');
             btns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const tabId = btn.getAttribute('data-tab');
-                    contents.forEach(content => content.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
                     btns.forEach(b => b.classList.remove('active'));
                     document.getElementById(tabId).classList.add('active');
                     btn.classList.add('active');

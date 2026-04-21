@@ -1,5 +1,5 @@
-tg://proxy?server=tg1.cloxybot.ru&port=443&secret=ee87ee1903924278acfd6980385ddb99bf72752e636c6f7879626f742e6575
+tg://proxy?server=37.49.224.102&port=443&secret=ee9f3c7a8d2e4b1c6f5a7d8e9b0c2f4a1d6d61782e7275
 
 tg://proxy?server=149.120.147.176&port=443&secret=ee6719f637173dc2276468b703e739f00e7777772e62696e672e636f6d
 
-tg://proxy?server=38.28.190.19&port=443&secret=ee14c815be04f1c6bddd220f15c86f5e487777772e6170706c652e636f6d
+tg://proxy?server=87.242.117.232&port=443&secret=ee9f3c7a8d2e4b1c6f5a7d8e9b0c2f4a1d6d61782e7275

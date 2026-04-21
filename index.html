@@ -19,7 +19,6 @@
             text-align: center;
             color: #333;
         }
-        /* Стили вкладок */
         .tabs {
             display: flex;
             gap: 5px;
@@ -147,36 +146,45 @@
             margin-bottom: 10px;
             color: #555;
         }
+        .badge {
+            background: #ff9800;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <h1>MTProto прокси для Telegram</h1>
     
-    <!-- Вкладки: только две -->
     <div class="tabs">
         <button class="tab-btn active" data-tab="tab1">📡 Все источники</button>
         <button class="tab-btn" data-tab="tab2">⭐ VIP proxy</button>
     </div>
 
-    <!-- Содержимое вкладок -->
     <div id="tab1" class="tab-content active">
         <div class="tab-status">Прокси из стандартных источников (SoliSpirit, Argh94, mtproto.ru, mtpro.xyz)</div>
         <div id="proxies-tab1"></div>
     </div>
     <div id="tab2" class="tab-content">
-        <div class="tab-status">Прокси из репозитория <strong>ant783/MTProto</strong> (автоматическая загрузка, ручной отбор)</div>
+        <div class="tab-status">
+            🔥 Эксклюзивные прокси из специального репозитория (файл <code>vip_proxies.txt</code>)
+            <br>👉 <a href="https://github.com/ant783/MTProto" target="_blank">Репозиторий с VIP-прокси</a> | 
+            <a href="https://ant783.github.io/MTProto/" target="_blank">Зеркало страницы</a>
+        </div>
         <div id="proxies-tab2"></div>
     </div>
 
     <button id="updateBtn">Проверка доступности обновления...</button>
     <div id="status">Загрузка прокси...</div>
-
     <div id="visitCounter" class="visit-counter">Посещений: --</div>
 
     <script>
         // ===================== Глобальные данные =====================
-        let standardProxies = [];      // из основных источников (теперь "Все источники")
-        let vipProxies = [];            // из ant783/MTProto (теперь "VIP proxy")
+        let standardProxies = [];      // "Все источники"
+        let vipProxies = [];            // "VIP proxy"
 
         let updateTimer = null;
 
@@ -263,51 +271,57 @@
             return [...new Set(combined.filter(p => p && p.startsWith('https://t.me/proxy?')))];
         }
 
-        // ---------- Источник 2: VIP proxy (ant783/MTProto) ----------
+        // ---------- Источник 2: VIP proxy (специальный файл vip_proxies.txt) ----------
         async function fetchVipProxies() {
-            // Прокси из репозитория ant783/MTProto + страница ant783.github.io/MTProto
-            const possibleFiles = [
+            // Основной файл из репозитория (без явного упоминания в коде, но ссылки ведут на ant783)
+            const vipFiles = [
+                'https://raw.githubusercontent.com/ant783/MTProto/main/vip_proxies.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/master/vip_proxies.txt',
+                'https://raw.githubusercontent.com/ant783/MTProto/main/vip_list.txt',
                 'https://raw.githubusercontent.com/ant783/MTProto/main/all_proxies.txt',
                 'https://raw.githubusercontent.com/ant783/MTProto/main/proxies.txt',
                 'https://raw.githubusercontent.com/ant783/MTProto/main/mtproto.txt',
-                'https://raw.githubusercontent.com/ant783/MTProto/main/list.txt',
-                'https://raw.githubusercontent.com/ant783/MTProto/master/all_proxies.txt',
-                'https://raw.githubusercontent.com/ant783/MTProto/master/proxies.txt'
+                'https://raw.githubusercontent.com/ant783/MTProto/main/list.txt'
             ];
-            let all = [];
-            for (const url of possibleFiles) {
+            let all = new Set();
+            
+            for (const url of vipFiles) {
                 try {
                     const resp = await fetch(url);
                     if (resp.ok) {
                         const text = await resp.text();
-                        const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#') && l.startsWith('https://t.me/proxy?'));
-                        all.push(...lines);
+                        const lines = text.split('\n')
+                            .map(l => l.trim())
+                            .filter(l => l && !l.startsWith('#') && l.startsWith('https://t.me/proxy?'));
+                        lines.forEach(line => all.add(line));
                     }
-                } catch(e) { /* тихо */ }
+                } catch(e) { /* игнорируем */ }
             }
-            // Парсим саму страницу GitHub Pages
+            
+            // Также парсим страницу зеркала
             try {
                 const pageResp = await fetch('https://ant783.github.io/MTProto/');
                 if (pageResp.ok) {
                     const html = await pageResp.text();
                     const regex = /https:\/\/t\.me\/proxy\?[^\s"']+/g;
                     const matches = html.match(regex);
-                    if (matches) all.push(...matches);
+                    if (matches) matches.forEach(m => all.add(m));
                 }
-            } catch(e) { console.log('не удалось спарсить ant783.github.io'); }
-            return [...new Set(all)];
+            } catch(e) { console.log('не удалось спарсить страницу с прокси'); }
+            
+            return [...all];
         }
 
-        // ---------- Функция отображения для любой вкладки (показываем 3 случайных) ----------
-        function renderProxiesInTab(containerId, proxyArray) {
+        // ---------- Функция отображения для вкладки (показываем 3 случайных) ----------
+        function renderProxiesInTab(containerId, proxyArray, customMessage = null) {
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
             if (!proxyArray.length) {
-                container.innerHTML = '<div class="empty-message">❌ Нет прокси в этом источнике. Попробуйте обновить позже.</div>';
+                const msg = customMessage || '❌ Нет прокси в этом источнике. Попробуйте обновить позже.';
+                container.innerHTML = `<div class="empty-message">${msg}</div>`;
                 return;
             }
-            // Берём 3 случайных
             const count = Math.min(3, proxyArray.length);
             const shuffled = [...proxyArray];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -343,20 +357,22 @@
                 div.appendChild(tgBtn);
                 container.appendChild(div);
             });
-            // подсказка
             const hint = document.createElement('div');
             hint.className = 'copy-hint';
             hint.textContent = '💡 Нажмите на ссылку прокси, чтобы скопировать её.';
             container.appendChild(hint);
         }
 
-        // Обновить обе вкладки
         function refreshAllTabs() {
             renderProxiesInTab('proxies-tab1', standardProxies);
-            renderProxiesInTab('proxies-tab2', vipProxies);
+            if (vipProxies.length === 0) {
+                renderProxiesInTab('proxies-tab2', vipProxies, 
+                    '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл <code>vip_proxies.txt</code> с ссылками вида https://t.me/proxy?server=...');
+            } else {
+                renderProxiesInTab('proxies-tab2', vipProxies);
+            }
         }
 
-        // Главная загрузка всех данных
         async function loadAllProxies() {
             const button = document.getElementById('updateBtn');
             const statusDiv = document.getElementById('status');
@@ -365,24 +381,21 @@
             statusDiv.classList.add('loading');
 
             try {
-                statusDiv.textContent = '📡 Загрузка основных прокси (Все источники)...';
+                statusDiv.textContent = '📡 Загрузка основных прокси...';
                 standardProxies = await loadStandardProxies();
                 
-                statusDiv.textContent = '⭐ Загрузка VIP прокси (ant783/MTProto)...';
+                statusDiv.textContent = '⭐ Загрузка VIP прокси (специальный файл vip_proxies.txt)...';
                 vipProxies = await fetchVipProxies();
                 
-                // Сохраняем в localStorage отдельно
                 localStorage.setItem('standardProxies', JSON.stringify(standardProxies));
                 localStorage.setItem('vipProxies', JSON.stringify(vipProxies));
                 localStorage.setItem('lastUpdateTime', Date.now().toString());
                 
-                // Отображаем
                 refreshAllTabs();
                 statusDiv.textContent = `✅ Загружено: «Все источники» — ${standardProxies.length} прокси, «VIP proxy» — ${vipProxies.length} прокси. Следующее обновление через 1 час.`;
             } catch (error) {
                 console.error(error);
                 statusDiv.textContent = '❌ Ошибка загрузки: ' + error.message;
-                // пробуем показать кеш
                 const cachedStd = localStorage.getItem('standardProxies');
                 const cachedVip = localStorage.getItem('vipProxies');
                 if (cachedStd && cachedVip) {
@@ -392,7 +405,7 @@
                     statusDiv.textContent = `⚠️ Использован кеш (Все источники: ${standardProxies.length}, VIP: ${vipProxies.length}). Повторите позже.`;
                 } else {
                     document.getElementById('proxies-tab1').innerHTML = '<div class="empty-message">Не удалось загрузить прокси</div>';
-                    document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Не удалось загрузить прокси</div>';
+                    document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Не удалось загрузить VIP прокси. Проверьте репозиторий.</div>';
                 }
             } finally {
                 statusDiv.classList.remove('loading');
@@ -400,7 +413,6 @@
             }
         }
 
-        // Форматирование времени
         function formatRemainingTime(ms) {
             const hours = Math.floor(ms / (1000 * 60 * 60));
             const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
@@ -435,7 +447,6 @@
             }
         }
 
-        // Счётчик посещений
         function updateVisitCounter() {
             const counter = document.getElementById('visitCounter');
             let visits = localStorage.getItem('visitCount');
@@ -445,7 +456,6 @@
             counter.textContent = `Посещений: ${visits}`;
         }
 
-        // Инициализация: загружаем из кеша или свежие
         async function initPage() {
             updateVisitCounter();
             const lastUpdate = localStorage.getItem('lastUpdateTime');
@@ -472,11 +482,9 @@
             } else {
                 updateButtonState();
             }
-            // активируем вкладки
             initTabs();
         }
 
-        // Переключение вкладок
         function initTabs() {
             const btns = document.querySelectorAll('.tab-btn');
             const contents = document.querySelectorAll('.tab-content');
@@ -491,7 +499,6 @@
             });
         }
 
-        // Старт
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initPage);
         } else {

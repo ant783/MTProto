@@ -163,7 +163,7 @@
             return message;
         });
 
-        // --- Источник 1: стандартные ---
+        // --- Источник 1: стандартные (SoliSpirit, Argh94, mtproto.ru, mtpro.xyz) ---
         async function fetchFromMtprotoRu() {
             try {
                 const response = await fetch('https://mtproto.ru/personal-other.php');
@@ -222,7 +222,7 @@
             return [...new Set(combined.filter(p => p && p.startsWith('https://t.me/proxy?')))];
         }
 
-        // --- Источник 2: VIP proxy (файл vip_proxies.txt) ---
+        // --- Источник 2: VIP proxy (поддержка tg:// и https://) ---
         async function fetchVipProxies() {
             const vipFiles = [
                 'https://raw.githubusercontent.com/ant783/MTProto/main/vip_proxies.txt',
@@ -237,18 +237,20 @@
                     const resp = await fetch(url);
                     if (resp.ok) {
                         const text = await resp.text();
+                        // Фильтр: оба формата tg://proxy? и https://t.me/proxy?
                         const lines = text.split('\n')
                             .map(l => l.trim())
-                            .filter(l => l && !l.startsWith('#') && l.startsWith('https://t.me/proxy?'));
+                            .filter(l => l && !l.startsWith('#') && (l.startsWith('https://t.me/proxy?') || l.startsWith('tg://proxy?')));
                         lines.forEach(line => all.add(line));
                     }
                 } catch(e) {}
             }
+            // Дополнительно парсим страницу ant783.github.io/MTProto
             try {
                 const pageResp = await fetch('https://ant783.github.io/MTProto/');
                 if (pageResp.ok) {
                     const html = await pageResp.text();
-                    const regex = /https:\/\/t\.me\/proxy\?[^\s"']+/g;
+                    const regex = /(?:https:\/\/t\.me\/proxy\?|tg:\/\/proxy\?)[^\s"']+/g;
                     const matches = html.match(regex);
                     if (matches) matches.forEach(m => all.add(m));
                 }
@@ -291,6 +293,7 @@
                         setTimeout(() => hint.remove(), 2000);
                     }).catch(() => alert('Не удалось скопировать'));
                 };
+                // Кнопка "Добавить в Telegram": для tg:// ссылок используем как есть, для https://t.me/proxy? — тоже подходит
                 const tgBtn = document.createElement('a');
                 tgBtn.href = proxyUrl;
                 tgBtn.className = 'tg-button';
@@ -311,14 +314,13 @@
             try {
                 standardProxies = await loadStandardProxies();
                 vipProxies = await fetchVipProxies();
-                // Сохраняем в localStorage на случай, если страница будет перезагружена принудительно
+                // Сохраняем в localStorage на случай перезагрузки
                 localStorage.setItem('standardProxies', JSON.stringify(standardProxies));
                 localStorage.setItem('vipProxies', JSON.stringify(vipProxies));
                 renderProxiesInTab('proxies-tab1', standardProxies, 'Нет стандартных прокси');
-                renderProxiesInTab('proxies-tab2', vipProxies, '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл vip_proxies.txt');
+                renderProxiesInTab('proxies-tab2', vipProxies, '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл vip_proxies.txt с ссылками tg://proxy? или https://t.me/proxy?');
             } catch (error) {
                 console.error(error);
-                // При ошибке пробуем загрузить из кеша
                 const cachedStd = localStorage.getItem('standardProxies');
                 const cachedVip = localStorage.getItem('vipProxies');
                 if (cachedStd && cachedVip) {

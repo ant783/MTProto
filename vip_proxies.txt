@@ -1,5 +1,5 @@
-tg://proxy?server=37.49.224.102&port=443&secret=ee9f3c7a8d2e4b1c6f5a7d8e9b0c2f4a1d6d61782e7275
+tg://proxy?server=mtproto.online&port=443&secret=ee139e0ee36150c1ea3bf299796586b5457777772e7674622e7275
 
-tg://proxy?server=149.120.147.176&port=443&secret=ee6719f637173dc2276468b703e739f00e7777772e62696e672e636f6d
+tg://proxy?server=us.proxyhelp.cc&port=65088&secret=dde5c3a1f7d9b2e4c6a8f0d2b4e6a8c0e2
 
-tg://proxy?server=87.242.117.232&port=443&secret=ee9f3c7a8d2e4b1c6f5a7d8e9b0c2f4a1d6d61782e7275
+tg://proxy?server=hotmoms.today&port=443&secret=ee25cbb92cbe5ef91a21da4e802e60675f6164732e78352e7275

@@ -163,6 +163,23 @@
             return message;
         });
 
+        // --- Функция нормализации: приводит любую ссылку к формату tg://proxy?... ---
+        function normalizeToTgProxy(url) {
+            if (!url) return url;
+            // Если уже начинается с tg://proxy?, оставляем как есть
+            if (url.startsWith('tg://proxy?')) return url;
+            // Если начинается с https://t.me/proxy?, заменяем префикс
+            if (url.startsWith('https://t.me/proxy?')) {
+                return 'tg://proxy?' + url.substring('https://t.me/proxy?'.length);
+            }
+            // Редкий случай: может быть http://t.me/proxy? — тоже заменяем
+            if (url.startsWith('http://t.me/proxy?')) {
+                return 'tg://proxy?' + url.substring('http://t.me/proxy?'.length);
+            }
+            // Если что-то другое — возвращаем как есть (но такого быть не должно)
+            return url;
+        }
+
         // --- Источник 1: стандартные (SoliSpirit, Argh94, mtproto.ru, mtpro.xyz) ---
         async function fetchFromMtprotoRu() {
             try {
@@ -172,6 +189,7 @@
                 const match = html.match(/Ваш сервер - ([^\s<]+)/);
                 if (match && match[1]) {
                     const server = match[1];
+                    // Возвращаем сразу в формате tg://proxy? (но можно и https, потом нормализуем)
                     return [`https://t.me/proxy?server=${server}`];
                 }
                 return [];
@@ -219,10 +237,16 @@
                 const xyz = await fetchFromMtproXyz();
                 combined.push(...xyz);
             } catch(e) {}
-            return [...new Set(combined.filter(p => p && p.startsWith('https://t.me/proxy?')))];
+            
+            // Фильтруем только те, что похожи на прокси-ссылки (https://t.me/proxy? или tg://proxy?)
+            let filtered = combined.filter(p => p && (p.startsWith('https://t.me/proxy?') || p.startsWith('tg://proxy?')));
+            // Нормализуем все в формат tg://proxy?
+            let normalized = filtered.map(p => normalizeToTgProxy(p));
+            // Убираем дубликаты
+            return [...new Set(normalized)];
         }
 
-        // --- Источник 2: VIP proxy (поддержка tg:// и https://) ---
+        // --- Источник 2: VIP proxy (поддержка tg:// и https://, потом нормализуем) ---
         async function fetchVipProxies() {
             const vipFiles = [
                 'https://raw.githubusercontent.com/ant783/MTProto/main/vip_proxies.txt',
@@ -255,7 +279,9 @@
                     if (matches) matches.forEach(m => all.add(m));
                 }
             } catch(e) {}
-            return [...all];
+            // Приводим все ссылки к единому формату tg://proxy?
+            const normalized = Array.from(all).map(link => normalizeToTgProxy(link));
+            return [...new Set(normalized)];
         }
 
         // Отображение прокси (по 3 случайных)
@@ -293,7 +319,7 @@
                         setTimeout(() => hint.remove(), 2000);
                     }).catch(() => alert('Не удалось скопировать'));
                 };
-                // Кнопка "Добавить в Telegram": для tg:// ссылок используем как есть, для https://t.me/proxy? — тоже подходит
+                // Кнопка "Добавить в Telegram" работает напрямую с tg:// ссылками
                 const tgBtn = document.createElement('a');
                 tgBtn.href = proxyUrl;
                 tgBtn.className = 'tg-button';
@@ -309,12 +335,12 @@
             container.appendChild(hint);
         }
 
-        // Загрузка всех данных без кнопки и таймера
+        // Загрузка всех данных
         async function loadAllProxies() {
             try {
                 standardProxies = await loadStandardProxies();
                 vipProxies = await fetchVipProxies();
-                // Сохраняем в localStorage на случай перезагрузки
+                // Сохраняем в localStorage (уже в нормализованном виде)
                 localStorage.setItem('standardProxies', JSON.stringify(standardProxies));
                 localStorage.setItem('vipProxies', JSON.stringify(vipProxies));
                 renderProxiesInTab('proxies-tab1', standardProxies, 'Нет стандартных прокси');

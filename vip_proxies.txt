@@ -1,5 +1,4 @@
 tg://proxy?server=mtproto.online&port=443&secret=ee139e0ee36150c1ea3bf299796586b5457777772e7674622e7275
-
+tg://proxy?server=yazaebalsyadelatproxy.uk&port=443&secret=ee69e899d89ec68e220ca177557322b27f7275737369616e2d616e696d616c732e7275
 tg://proxy?server=us.proxyhelp.cc&port=65088&secret=dde5c3a1f7d9b2e4c6a8f0d2b4e6a8c0e2
-
 tg://proxy?server=hotmoms.today&port=443&secret=ee25cbb92cbe5ef91a21da4e802e60675f6164732e78352e7275

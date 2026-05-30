@@ -116,6 +116,13 @@
             margin-top: 5px;
             text-align: center;
         }
+        .update-date {
+            font-size: 12px;
+            color: #4CAF50;
+            text-align: center;
+            margin-top: 8px;
+            font-weight: normal;
+        }
         .loading-spinner {
             text-align: center;
             padding: 20px;
@@ -137,7 +144,6 @@
             background: transparent;
             pointer-events: none; /* клики проходят сквозь iframe к родительской ссылке */
         }
-        /* Дополнительно для прозрачности */
         .donation-link:hover {
             opacity: 0.95;
         }
@@ -189,6 +195,15 @@
             e.returnValue = message;
             return message;
         });
+
+        // --- Функция для получения текущей даты в формате ДД.ММ.ГГГГ ---
+        function getCurrentDateString() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
 
         // --- Функция нормализации: приводит любую ссылку к формату tg://proxy?... ---
         function normalizeToTgProxy(url) {
@@ -300,12 +315,18 @@
             return [...new Set(normalized)];
         }
 
+        // Отображение прокси (по 3 случайных) + подсказка + дата обновления
         function renderProxiesInTab(containerId, proxyArray, emptyMessage = '❌ Нет прокси. Попробуйте позже.') {
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
             if (!proxyArray.length) {
                 container.innerHTML = `<div class="empty-message">${emptyMessage}</div>`;
+                // Даже если пусто, показываем дату (чтобы дизайн не сломался)
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'update-date';
+                dateDiv.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
+                container.appendChild(dateDiv);
                 return;
             }
             const count = Math.min(3, proxyArray.length);
@@ -343,10 +364,18 @@
                 div.appendChild(tgBtn);
                 container.appendChild(div);
             });
+            
+            // Подсказка о копировании
             const hint = document.createElement('div');
             hint.className = 'copy-hint';
             hint.textContent = '💡 Нажмите на ссылку прокси, чтобы скопировать её.';
             container.appendChild(hint);
+            
+            // Строка с датой обновления
+            const dateDiv = document.createElement('div');
+            dateDiv.className = 'update-date';
+            dateDiv.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
+            container.appendChild(dateDiv);
         }
 
         async function loadAllProxies() {
@@ -369,6 +398,15 @@
                 } else {
                     document.getElementById('proxies-tab1').innerHTML = '<div class="empty-message">Ошибка загрузки стандартных прокси</div>';
                     document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Ошибка загрузки VIP прокси</div>';
+                    // Всё равно покажем дату
+                    const dateDiv1 = document.createElement('div');
+                    dateDiv1.className = 'update-date';
+                    dateDiv1.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
+                    document.getElementById('proxies-tab1').appendChild(dateDiv1);
+                    const dateDiv2 = document.createElement('div');
+                    dateDiv2.className = 'update-date';
+                    dateDiv2.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
+                    document.getElementById('proxies-tab2').appendChild(dateDiv2);
                 }
             }
         }

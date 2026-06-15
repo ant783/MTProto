@@ -128,7 +128,6 @@
             padding: 20px;
             color: #666;
         }
-        /* Контейнер для кнопки пожертвования — ссылка, открывающая новое окно */
         .donation-link {
             display: flex;
             justify-content: center;
@@ -142,7 +141,7 @@
             max-width: 100%;
             border: none;
             background: transparent;
-            pointer-events: none; /* клики проходят сквозь iframe к родительской ссылке */
+            pointer-events: none;
         }
         .donation-link:hover {
             opacity: 0.95;
@@ -164,7 +163,6 @@
         <div id="proxies-tab2" class="loading-spinner">Загрузка VIP прокси...</div>
     </div>
 
-    <!-- Кнопка пожертвования: ссылка открывается в новой вкладке, iframe визуально отображается, но некликабелен -->
     <a href="https://yoomoney.ru/fundraise/1I350CL1AKC.260530" target="_blank" rel="noopener noreferrer" class="donation-link">
         <iframe src="https://yoomoney.ru/quickpay/fundraise/button?billNumber=1I350CL1AKC.260530&" width="330" height="50" frameborder="0" allowtransparency="true" scrolling="no"></iframe>
     </a>
@@ -175,7 +173,6 @@
         let standardProxies = [];
         let vipProxies = [];
 
-        // Защита от обновления страницы (F5, Ctrl+R)
         document.addEventListener('keydown', function(e) {
             const key = e.keyCode || e.which;
             const ctrl = e.ctrlKey || e.metaKey;
@@ -196,7 +193,6 @@
             return message;
         });
 
-        // --- Функция для получения текущей даты в формате ДД.ММ.ГГГГ ---
         function getCurrentDateString() {
             const now = new Date();
             const day = String(now.getDate()).padStart(2, '0');
@@ -205,7 +201,6 @@
             return `${day}.${month}.${year}`;
         }
 
-        // --- Функция нормализации: приводит любую ссылку к формату tg://proxy?... ---
         function normalizeToTgProxy(url) {
             if (!url) return url;
             if (url.startsWith('tg://proxy?')) return url;
@@ -218,7 +213,6 @@
             return url;
         }
 
-        // --- Источник 1: стандартные ---
         async function fetchFromMtprotoRu() {
             try {
                 const response = await fetch('https://mtproto.ru/personal-other.php');
@@ -248,8 +242,26 @@
             }
         }
 
+        // Новые источники от kort0881
+        async function fetchFromKort0881(url) {
+            try {
+                const resp = await fetch(url);
+                if (!resp.ok) return [];
+                const text = await resp.text();
+                // Может быть список ссылок в raw, каждая строка — ссылка
+                const lines = text.split('\n')
+                    .map(l => l.trim())
+                    .filter(l => l && !l.startsWith('#') && (l.startsWith('https://t.me/proxy?') || l.startsWith('tg://proxy?')));
+                return lines;
+            } catch(e) {
+                console.log(`Ошибка загрузки ${url}:`, e);
+                return [];
+            }
+        }
+
         async function loadStandardProxies() {
             let combined = [];
+            // Старые источники
             try {
                 const resp1 = await fetch('https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt');
                 if (resp1.ok) {
@@ -275,12 +287,22 @@
                 combined.push(...xyz);
             } catch(e) {}
             
+            // Новые источники kort0881
+            const kortUrls = [
+                'https://raw.githubusercontent.com/kort0881/telegram-proxy-collector/main/proxy_ru.txt',
+                'https://raw.githubusercontent.com/kort0881/telegram-proxy-collector/main/proxy_all.txt',
+                'https://raw.githubusercontent.com/kort0881/telegram-proxy-collector/main/proxy_eu.txt'
+            ];
+            for (const url of kortUrls) {
+                const proxies = await fetchFromKort0881(url);
+                combined.push(...proxies);
+            }
+            
             let filtered = combined.filter(p => p && (p.startsWith('https://t.me/proxy?') || p.startsWith('tg://proxy?')));
             let normalized = filtered.map(p => normalizeToTgProxy(p));
             return [...new Set(normalized)];
         }
 
-        // --- Источник 2: VIP proxy ---
         async function fetchVipProxies() {
             const vipFiles = [
                 'https://raw.githubusercontent.com/ant783/MTProto/main/vip_proxies.txt',
@@ -315,14 +337,12 @@
             return [...new Set(normalized)];
         }
 
-        // Отображение прокси (по 3 случайных) + подсказка + дата обновления
         function renderProxiesInTab(containerId, proxyArray, emptyMessage = '❌ Нет прокси. Попробуйте позже.') {
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
             if (!proxyArray.length) {
                 container.innerHTML = `<div class="empty-message">${emptyMessage}</div>`;
-                // Даже если пусто, показываем дату (чтобы дизайн не сломался)
                 const dateDiv = document.createElement('div');
                 dateDiv.className = 'update-date';
                 dateDiv.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
@@ -364,14 +384,10 @@
                 div.appendChild(tgBtn);
                 container.appendChild(div);
             });
-            
-            // Подсказка о копировании
             const hint = document.createElement('div');
             hint.className = 'copy-hint';
             hint.textContent = '💡 Нажмите на ссылку прокси, чтобы скопировать её.';
             container.appendChild(hint);
-            
-            // Строка с датой обновления
             const dateDiv = document.createElement('div');
             dateDiv.className = 'update-date';
             dateDiv.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
@@ -385,7 +401,7 @@
                 localStorage.setItem('standardProxies', JSON.stringify(standardProxies));
                 localStorage.setItem('vipProxies', JSON.stringify(vipProxies));
                 renderProxiesInTab('proxies-tab1', standardProxies, 'Нет стандартных прокси');
-                renderProxiesInTab('proxies-tab2', vipProxies, '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл vip_proxies.txt с ссылками tg://proxy? или https://t.me/proxy?');
+                renderProxiesInTab('proxies-tab2', vipProxies, '⭐ VIP прокси не найдены. Убедитесь, что в репозитории есть файл vip_proxies.txt');
             } catch (error) {
                 console.error(error);
                 const cachedStd = localStorage.getItem('standardProxies');
@@ -398,7 +414,6 @@
                 } else {
                     document.getElementById('proxies-tab1').innerHTML = '<div class="empty-message">Ошибка загрузки стандартных прокси</div>';
                     document.getElementById('proxies-tab2').innerHTML = '<div class="empty-message">Ошибка загрузки VIP прокси</div>';
-                    // Всё равно покажем дату
                     const dateDiv1 = document.createElement('div');
                     dateDiv1.className = 'update-date';
                     dateDiv1.textContent = `📅 Список прокси обновлен сегодня — ${getCurrentDateString()}`;
@@ -423,7 +438,6 @@
         async function initPage() {
             updateVisitCounter();
             await loadAllProxies();
-
             const btns = document.querySelectorAll('.tab-btn');
             const contents = document.querySelectorAll('.tab-content');
             btns.forEach(btn => {
